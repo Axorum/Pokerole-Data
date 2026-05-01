@@ -482,6 +482,7 @@ class Foundry_Engine(Engine):
                     "recoil":              attr.get("Recoil", False),
                     "rampage":             attr.get("Rampage", False),
                     "doubleAction":        attr.get("DoubleAction", False),
+                    "tripleAction":        attr.get("TripleAction", False),
                     "alwaysCrit":          attr.get("AlwaysCrit", False),
                     "destroyShield":       attr.get("DestroyShield", False),
                     "successiveActions":   attr.get("SuccessiveActions", False),
@@ -493,6 +494,7 @@ class Foundry_Engine(Engine):
                     "windMove":            attr.get("WindMove", False),
                     "biteMove":            attr.get("BiteMove", False),
                     "powderMove":          attr.get("PowderMove", False),
+                    "projectileMove":      attr.get("ProjectileMove", False),
                     "maneuver":            move_type == "none"
                 },
                 "effectGroups": generate_addedEffect(effects),
