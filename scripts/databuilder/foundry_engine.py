@@ -19,6 +19,28 @@ class Foundry_Engine(Engine):
     
     # # These functions take JSON and return a string to be outputted. 
     
+    def _convert_evolutions(self, evolutions):
+        converted = []
+        for evo in evolutions:
+            converted.append({
+                "direction": "from" if "From" in evo else "to",
+                "species": evo.get("From") or evo.get("To"),
+                "kind": evo.get("Kind", "").lower(),
+                "item": evo.get("Item") or evo.get("Stone"),
+                "speed": evo.get("Speed", "").lower() if evo.get("Speed") else None,
+                "stat": evo.get("Stat"),
+                "value": evo.get("Value"),
+                "special": evo.get("Special"),
+                "region": evo.get("Region"),
+                "move": evo.get("Move"),
+                "gender": evo.get("Gender"),
+                "game": evo.get("Game"),
+            })
+        return converted
+
+    def _convert_gender(self, gender_type):
+        return {"M": "male", "F": "female", "N": "genderless"}.get(gender_type, "neutral")
+
     def pokedex_entry(self, entry, write):
         learnset = entry["Moves"]
         moves = []
@@ -76,7 +98,7 @@ class Foundry_Engine(Engine):
                 "rank": "none",
                 "recommendedRank": entry['RecommendedRank'].lower(),
                 "personality": "hardy",
-                "gender": "neutral", #new
+                "gender": self._convert_gender(entry.get('GenderType', '')),
                 "actionCount": {
                 "value": 0,
                 "min": 0,
@@ -229,6 +251,7 @@ class Foundry_Engine(Engine):
                     "max": 5
                 }
                 },
+                "evolutions": self._convert_evolutions(entry.get('Evolutions', [])),
                 "source": self.display_version,
             },
             "prototypeToken": {
@@ -475,7 +498,7 @@ class Foundry_Engine(Engine):
                     "charge":              attr.get("Charge", False),
                     "mustRecharge":        attr.get("MustRecharge", False),
                     "fistBased":           attr.get("FistMove", False),
-                    "soundBased":          attr.get("SoundBased", False),
+                    "soundBased":          attr.get("SoundMove", False),
                     "shieldMove":          attr.get("ShieldMove", False),
                     "neverFail":           attr.get("NeverMiss", False),
                     "switcherMove":        attr.get("SwitcherMove", False),
@@ -545,14 +568,29 @@ class Foundry_Engine(Engine):
 
         return foundry
     
+    POCKET_MAP = {
+        'HeldItems': 'heldItem',
+        'Medicine': 'medicine',
+        'TrainerItems': 'item',
+        'EvolutionItem': 'evolutionItem',
+        'Pokeballs': 'pokeball',
+        'TechnicalMachine': 'technicalMachine',
+    }
+
     def itemdex_entry(self, entry, write=True):
-        # Add the price if it's numeric
-        price = entry.get('TrainerPrice')
-        if price:
+        # TrainerPrice is either a numeric gold cost, or a rarity tier ("Not for Sale", "Rare",
+        # "Uncommon", "Common") for items that aren't bought with gold. Keep both possibilities:
+        # price stays a number (or None), rarity keeps the tier text.
+        raw_price = entry.get('TrainerPrice')
+        price = None
+        rarity = ""
+        if raw_price is not None:
             try:
-                price = int(price)
+                price = int(raw_price)
             except ValueError:
-                price = None
+                rarity = raw_price
+
+        pocket = self.POCKET_MAP.get(entry.get('Pocket'), 'item')
 
         img = f"systems/pokerole/images/items/{entry['_id']}.png"
         if not exists(f"../../images/ItemSprites/{entry['_id']}.png"):
@@ -565,8 +603,8 @@ class Foundry_Engine(Engine):
             "system": {
                 "description": f"<p>{entry['Description']}</p>",
                 "price": price,
-                "pocket": "item" # For the Auto-sort inventory function on live!
-                #We can discuss about it, have a list of "pockets" implemented but maybe is better to build a list by ourselves and clasify the items at database level
+                "rarity": rarity,
+                "pocket": pocket # For the Auto-sort inventory function on live!
             },
             "effects": [],
             "source": entry["Source"],
