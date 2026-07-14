@@ -10,9 +10,7 @@
     "Effect": "Single Target. Roll 5 Chance Dice to Reduce the Target's Defense by 2.",
     "Description": "With a crushing grip against the foe, the user manages to break their armor.",
     "_id": "crush-claw",
-    "Attributes": {
-        "Lethal": true
-    },
+    "Attributes": {},
     "AddedEffects": {
         "StatChanges": [
             {
