@@ -1,5 +1,5 @@
 from engine import Engine
-from os.path import join, exists
+from os.path import join, exists, dirname
 from shutil import rmtree
 from datetime import datetime
 from hashlib import blake2b
@@ -7,6 +7,12 @@ import json
 
 DEFAULT_POKEMON_MANEUVERS = ['Struggle - Physical', 'Struggle - Special', 'Grapple', 'Help Another', 'Cover An Ally', 'Run Away', 'Ambush', 'Clash', 'Evasion', 'Stabilize An Ally']
 POKEMON_TOKEN_IMAGES = 'book'
+
+# Manual per-move overrides for the "Damage Pool Formula" mechanic (module/data/item-move.mjs on
+# the Foundry side) - the source dataset has no concept of this, so moves with non-standard damage
+# math (stat-comparison dice, HP-based damage, fixed damage) are curated here by move _id.
+with open(join(dirname(__file__), 'resources', 'damage_pool_overrides.json'), encoding='utf-8') as f:
+    DAMAGE_POOL_OVERRIDES = json.load(f)
 
 class Foundry_Engine(Engine):
     
@@ -40,6 +46,10 @@ class Foundry_Engine(Engine):
 
     def _convert_gender(self, gender_type):
         return {"M": "male", "F": "female", "N": "genderless"}.get(gender_type, "neutral")
+
+    def _convert_damage_pool(self, move_id):
+        override = DAMAGE_POOL_OVERRIDES.get(move_id)
+        return {"formula": "standard", **override} if override else {"formula": "standard"}
 
     def pokedex_entry(self, entry, write):
         learnset = entry["Moves"]
@@ -522,6 +532,7 @@ class Foundry_Engine(Engine):
                 },
                 "effectGroups": generate_addedEffect(effects),
                 "heal": _convert_heal_data(entry.get('AddedEffects',{}).get('Heal', {})),
+                "damagePool": self._convert_damage_pool(id),
             },
             "effects": [], #No changes on effects or Added Effects so all good
             "flags": {},
@@ -579,16 +590,15 @@ class Foundry_Engine(Engine):
 
     def itemdex_entry(self, entry, write=True):
         # TrainerPrice is either a numeric gold cost, or a rarity tier ("Not for Sale", "Rare",
-        # "Uncommon", "Common") for items that aren't bought with gold. Keep both possibilities:
-        # price stays a number (or None), rarity keeps the tier text.
+        # "Uncommon", "Common") for items that aren't bought with gold - keep price as None
+        # for those rather than fabricating a 0 cost.
         raw_price = entry.get('TrainerPrice')
         price = None
-        rarity = ""
         if raw_price is not None:
             try:
                 price = int(raw_price)
             except ValueError:
-                rarity = raw_price
+                pass
 
         pocket = self.POCKET_MAP.get(entry.get('Pocket'), 'item')
 
@@ -603,7 +613,6 @@ class Foundry_Engine(Engine):
             "system": {
                 "description": f"<p>{entry['Description']}</p>",
                 "price": price,
-                "rarity": rarity,
                 "pocket": pocket # For the Auto-sort inventory function on live!
             },
             "effects": [],
